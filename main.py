@@ -85,7 +85,7 @@ with st.sidebar:
         st.info("No downloads yet.")
 
 
-st.title("📥 YouTube Downloader with yt-dlp")
+st.title("📥 YouTube Downloader with Streamlit")
 
 url = st.text_input("Enter YouTube Video or Playlist URL")
 col1, col2 = st.columns([2, 1])
