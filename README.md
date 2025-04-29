@@ -16,21 +16,21 @@ This is a simple yet powerful web app to download YouTube videos or playlists us
 
 ## 🖥 Live Demo
 
-> 🔗 [Click here to try it online](https://share.streamlit.io/your-username/your-repo-name/main/app.py)  
-> *(Replace with your actual deployed link)*
+> 🔗 [Click here to try it online](https://ytgrab.streamlit.app/)
 
 ---
 
 ## 📸 Screenshots
 
-<img src="https://your-screenshot-url.com/demo1.png" width="600"/>
+<img src="./screenshots/img1.png" width="600"/>
+<img src="./screenshots/img2.png" width="600"/>
 
 ---
 
 ## ⚙️ Installation
 
-Clone the repository:
+<!-- Clone the repository:
 
 ```bash
 git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
+cd your-repo-name -->
