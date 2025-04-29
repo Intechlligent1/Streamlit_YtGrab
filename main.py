@@ -9,7 +9,7 @@ from datetime import datetime
 HISTORY_FILE = "history.json"
 DEFAULT_PATH = str(Path.home() / "Downloads" / "IntechGrab")
 
-st.set_page_config(page_title="🎥 YT Grab", page_icon="🎥", layout="wide")
+st.set_page_config(page_title="YT Grab", page_icon="🎥", layout="wide")
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
