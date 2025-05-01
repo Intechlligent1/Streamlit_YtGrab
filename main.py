@@ -85,7 +85,6 @@ st.markdown("""
         .stTextInput>div>div>input {
             border-radius: 15px !important;
             padding: 14px 24px !important;
-            # border: 2px solid #000 !important;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             font-size: 1rem;
         }
@@ -219,7 +218,7 @@ def get_download_dir():
     
     Path(download_dir).mkdir(exist_ok=True)
     
-    videos_dir = os.path.join(download_dir, 'Yt Grab ')
+    videos_dir = os.path.join(download_dir, 'YtGrabPro')
     Path(videos_dir).mkdir(exist_ok=True)
     
     return videos_dir
@@ -254,53 +253,121 @@ if url:
         platform = "YouTube"
     elif "tiktok.com" in url:
         platform = "TikTok"
+    elif "instagram.com" in url:
+        platform = "Instagram"
+    elif "twitter.com" in url or "x.com" in url:
+        platform = "Twitter/X"
+    elif "facebook.com" in url or "fb.com" in url:
+        platform = "Facebook"
 
-format_choice = st.selectbox(
-    "🎚️ Select Format",
-    ["Best Video", "Best Audio", "MP4 720p", "MP4 480p", "MP3"],
-    index=0
-)
+# Show format selection only for YouTube
+show_formats = platform == "YouTube"
+
+if show_formats:
+    format_choice = st.selectbox(
+        "🎚️ Select Format",
+        ["Best Quality Available", "MP4 720p (if available)", "MP4 480p (if available)", "Audio Only (MP3)"],
+        index=0
+    )
+else:
+    format_choice = "Best Quality Available"
+
+advanced_options = st.expander("Advanced Options")
+with advanced_options:
+    show_available_formats = st.checkbox("Show available formats before downloading")
+    fallback_to_best = st.checkbox("Automatically fallback to best available quality", value=True)
 
 if st.button("🚀 Start Download"):
     if not url:
         st.error("Please enter a valid URL.")
     else:
+        # Basic options that always apply
         ydl_opts = {
             "outtmpl": f"{download_path}/%(title)s.%(ext)s",
-            "quiet": True,
-            "no_warnings": True
+            "quiet": False,  # Set to False to capture more detailed output
+            "no_warnings": False,  # We want warnings to help debug
+            "ignoreerrors": True,  # Continue on error to allow fallback
         }
         
-        if platform == "YouTube":
-            if format_choice == "Best Audio":
-                ydl_opts.update({
-                    "format": "bestaudio/best",
-                    "postprocessors": [{
-                        "key": "FFmpegExtractAudio",
-                        "preferredcodec": "mp3",
-                        "preferredquality": "192",
-                    }],
-                })
-            elif format_choice == "MP4 720p":
-                ydl_opts["format"] = "bestvideo[height<=720]+bestaudio/best"
-                ydl_opts["merge_output_format"] = "mp4"
-            elif format_choice == "MP4 480p":
-                ydl_opts["format"] = "bestvideo[height<=480]+bestaudio/best"
-                ydl_opts["merge_output_format"] = "mp4"
-            elif format_choice == "MP3":
-                ydl_opts.update({
-                    "format": "bestaudio/best",
-                    "postprocessors": [{
-                        "key": "FFmpegExtractAudio",
-                        "preferredcodec": "mp3",
-                        "preferredquality": "192",
-                    }],
-                })
-            else: 
-                ydl_opts["format"] = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+        # If user wants to see available formats
+        if show_available_formats:
+            with st.spinner("Fetching available formats..."):
+                info_opts = dict(ydl_opts)
+                info_opts["listformats"] = True
+                info_opts["quiet"] = False
                 
-        elif platform == "TikTok":
-            if format_choice in ["Best Audio", "MP3"]:
+                format_output = []
+                def format_logger(msg):
+                    format_output.append(msg)
+                
+                try:
+                    with yt_dlp.YoutubeDL({"quiet": False, "no_warnings": False}) as ydl:
+                        ydl.add_default_info_extractors()
+                        info = ydl.extract_info(url, download=False, process=False)
+                        
+                        with yt_dlp.YoutubeDL({"quiet": False, "listformats": True}) as ydl:
+                            ydl.add_default_info_extractors()
+                            info = ydl.extract_info(url, download=False)
+                            
+                            # Format information is stored in info['formats']
+                            if 'formats' in info:
+                                st.markdown("### Available Formats")
+                                format_table = []
+                                
+                                # Header row
+                                format_table.append("| Format Code | Extension | Resolution | Note |")
+                                format_table.append("|------------|-----------|------------|------|")
+                                
+                                for f in info['formats']:
+                                    format_id = f.get('format_id', 'N/A')
+                                    ext = f.get('ext', 'N/A')
+                                    resolution = 'N/A'
+                                    
+                                    if 'height' in f and 'width' in f:
+                                        resolution = f"{f['width']}x{f['height']}"
+                                    elif 'height' in f:
+                                        resolution = f"{f['height']}p"
+                                        
+                                    note = f.get('format_note', '')
+                                    if f.get('acodec', 'none') == 'none':
+                                        note += ' [video only]'
+                                    if f.get('vcodec', 'none') == 'none':
+                                        note += ' [audio only]'
+                                        
+                                    format_table.append(f"| {format_id} | {ext} | {resolution} | {note} |")
+                                
+                                st.markdown("\n".join(format_table))
+                except Exception as e:
+                    st.warning(f"Could not fetch format information: {str(e)}")
+        
+        # Set format options based on user selection
+        if platform == "YouTube":
+            if format_choice == "Audio Only (MP3)":
+                ydl_opts.update({
+                    "format": "bestaudio/best",
+                    "postprocessors": [{
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": "mp3",
+                        "preferredquality": "192",
+                    }],
+                })
+            elif format_choice == "MP4 720p (if available)":
+                if fallback_to_best:
+                    ydl_opts["format"] = "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]/best"
+                else:
+                    ydl_opts["format"] = "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio"
+                ydl_opts["merge_output_format"] = "mp4"
+            elif format_choice == "MP4 480p (if available)":
+                if fallback_to_best:
+                    ydl_opts["format"] = "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio/best[height<=480]/best"
+                else:
+                    ydl_opts["format"] = "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=480]+bestaudio"
+                ydl_opts["merge_output_format"] = "mp4"
+            else:  # Best Quality Available
+                ydl_opts["format"] = "bestvideo+bestaudio/best"
+                ydl_opts["merge_output_format"] = "mp4"
+        elif platform in ["TikTok", "Instagram", "Twitter/X", "Facebook"]:
+            if format_choice == "Audio Only (MP3)":
                 ydl_opts.update({
                     "format": "bestaudio/best",
                     "postprocessors": [{
@@ -310,35 +377,66 @@ if st.button("🚀 Start Download"):
                     }],
                 })
             else:
+                # Default to best available for other platforms
                 ydl_opts["format"] = "best"
         else:
-            st.error("Unsupported platform. Currently supports YouTube and TikTok.")
-            st.stop()
+            # For unknown platforms, use best available
+            ydl_opts["format"] = "best"
 
         with st.spinner("⏳ Downloading... This might take a moment"):
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url, download=True)
-                    filename = ydl.prepare_filename(info)
-                    st.success("🎉 Download completed!")
-                    st.markdown(f'<div class="download-info">'
-                                f'<strong>Saved file:</strong><br>'
-                                f'<code>{filename}</code><br><br>'
-                                f'<strong>Download location:</strong><br>'
-                                f'<code>{download_path}</code></div>', 
-                                unsafe_allow_html=True)
-                    # st.balloons()
+                    # First try with selected format
+                    try:
+                        info = ydl.extract_info(url, download=True)
+                        filename = ydl.prepare_filename(info)
+                        
+                        # Handle case where filename has wrong extension due to post-processing
+                        if format_choice == "Audio Only (MP3)" and not filename.endswith('.mp3'):
+                            base_filename = os.path.splitext(filename)[0]
+                            filename = base_filename + '.mp3'
+                            
+                        st.success("🎉 Download completed!")
+                        st.markdown(f'<div class="download-info">'
+                                    f'<strong>Saved file:</strong><br>'
+                                    f'<code>{filename}</code><br><br>'
+                                    f'<strong>Download location:</strong><br>'
+                                    f'<code>{download_path}</code></div>', 
+                                    unsafe_allow_html=True)
+                    except yt_dlp.utils.DownloadError as e:
+                        if "Requested format is not available" in str(e) and fallback_to_best:
+                            st.warning("Requested format not available, falling back to best available quality...")
+                            
+                            # Fallback to best quality
+                            fallback_opts = dict(ydl_opts)
+                            fallback_opts["format"] = "best"
+                            
+                            with yt_dlp.YoutubeDL(fallback_opts) as fallback_ydl:
+                                info = fallback_ydl.extract_info(url, download=True)
+                                filename = fallback_ydl.prepare_filename(info)
+                                
+                                st.success("🎉 Download completed with best available quality!")
+                                st.markdown(f'<div class="download-info">'
+                                            f'<strong>Saved file:</strong><br>'
+                                            f'<code>{filename}</code><br><br>'
+                                            f'<strong>Download location:</strong><br>'
+                                            f'<code>{download_path}</code></div>', 
+                                            unsafe_allow_html=True)
+                        else:
+                            # Re-raise if the error is not about format availability or fallback is disabled
+                            raise
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
+                st.info("Tip: Try selecting a different format or check your URL.")
 
 st.markdown(f"""
     <div class="footer">
         <div class="platforms">
             <span class="platform-badge {'active' if platform == 'YouTube' else ''}">YouTube</span>
             <span class="platform-badge {'active' if platform == 'TikTok' else ''}">TikTok</span>
-            <span class="platform-badge">Instagram</span>
-            <span class="platform-badge">Twitter/X</span>
-            <span class="platform-badge">Facebook</span>
+            <span class="platform-badge {'active' if platform == 'Instagram' else ''}">Instagram</span>
+            <span class="platform-badge {'active' if platform == 'Twitter/X' else ''}">Twitter/X</span>
+            <span class="platform-badge {'active' if platform == 'Facebook' else ''}">Facebook</span>
         </div>
         <p style="margin:1rem 0">Made with ❤️ by IntechX</p>
         <div style="display:flex; justify-content:center; gap:1rem; margin:1rem 0;">
@@ -352,7 +450,7 @@ st.markdown(f"""
             This tool is for educational purposes only.
         </p>
     </div>
-    <div class="watermark">v2.1.0</div>
+    <div class="watermark">v2.2.0</div>
 """, unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
