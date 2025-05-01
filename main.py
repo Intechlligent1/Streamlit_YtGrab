@@ -9,32 +9,38 @@ st.markdown("""
     <style>
         @keyframes gradient {
             0% {background-position: 0% 50%;}
-            50% {background-position: 100% 50%;}
+            50% {background_position: 100% 50%;}
             100% {background-position: 0% 50%;}
         }
+        
         @keyframes float {
             0% {transform: translateY(0px);}
             50% {transform: translateY(-10px);}
             100% {transform: translateY(0px);}
         }
+        
         @keyframes shine {
             to {background-position: 200% center;}
         }
+        
         @keyframes pulse {
             0% {transform: scale(1);}
             50% {transform: scale(1.05);}
             100% {transform: scale(1);}
         }
+        
         :root {
             --primary: #6366f1;
             --secondary: #8b5cf6;
             --accent: #ec4899;
             --background: #f8fafc;
         }
+        
         body {
             background: linear-gradient(45deg, #f3f4f6, #e5e7eb) !important;
             font-family: 'Segoe UI', system-ui, sans-serif;
         }
+        
         .main {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
@@ -46,6 +52,7 @@ st.markdown("""
             margin: 1rem auto;
             max-width: 800px;
         }
+        
         .header {
             text-align: center;
             padding: 3rem 0;
@@ -58,6 +65,7 @@ st.markdown("""
             position: relative;
             overflow: hidden;
         }
+        
         .header::after {
             content: "";
             position: absolute;
@@ -68,6 +76,7 @@ st.markdown("""
             background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
             animation: shine 3s infinite;
         }
+        
         .stTextInput>div>div>input {
             border-radius: 15px !important;
             padding: 14px 24px !important;
@@ -75,15 +84,18 @@ st.markdown("""
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             font-size: 1rem;
         }
+        
         .stTextInput>div>div>input:focus {
             border-color: var(--primary) !important;
             box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15) !important;
         }
+        
         .stSelectbox>div>div>select {
             border-radius: 15px !important;
             padding: 12px 20px !important;
             transition: all 0.3s ease !important;
         }
+        
         .stButton>button {
             width: 100%;
             border-radius: 15px !important;
@@ -97,11 +109,13 @@ st.markdown("""
             border: none !important;
             animation: pulse 2s infinite;
         }
+        
         .stButton>button:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 16px rgba(99, 102, 241, 0.3) !important;
             animation: none;
         }
+        
         .stButton>button::after {
             content: "";
             position: absolute;
@@ -113,6 +127,7 @@ st.markdown("""
             transform: rotate(45deg);
             animation: shine 3s infinite;
         }
+        
         .download-info {
             background: white;
             padding: 1.5rem;
@@ -121,6 +136,7 @@ st.markdown("""
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
             animation: slideIn 0.5s ease-out;
         }
+        
         .footer {
             text-align: center;
             padding: 2rem 0;
@@ -128,6 +144,7 @@ st.markdown("""
             color: #64748b;
             position: relative;
         }
+        
         .platforms {
             display: flex;
             justify-content: center;
@@ -135,6 +152,7 @@ st.markdown("""
             margin: 1.5rem 0;
             flex-wrap: wrap;
         }
+        
         .platform-badge {
             background: rgba(99, 102, 241, 0.1);
             padding: 0.6rem 1.2rem;
@@ -145,23 +163,28 @@ st.markdown("""
             transition: all 0.3s ease;
             cursor: pointer;
         }
+        
         .platform-badge:hover {
             transform: translateY(-2px);
             background: rgba(99, 102, 241, 0.15);
             box-shadow: 0 4px 6px rgba(99, 102, 241, 0.1);
         }
+        
         .platform-badge.active {
             background: var(--primary);
             color: white;
             font-weight: 500;
         }
+        
         @keyframes slideIn {
             from {transform: translateY(20px); opacity: 0;}
             to {transform: translateY(0); opacity: 1;}
         }
+        
         .stSpinner>div {
             border-color: var(--primary) transparent transparent transparent !important;
         }
+        
         .watermark {
             position: fixed;
             bottom: 10px;
@@ -195,8 +218,6 @@ def get_download_dir():
     Path(videos_dir).mkdir(exist_ok=True)
     return videos_dir
 
-DOWNLOAD_PATH = get_download_dir()
-
 def get_video_info(url):
     ydl_opts = {
         'quiet': True,
@@ -209,6 +230,114 @@ def get_video_info(url):
     except Exception as e:
         st.error(f"❌ Error getting video info: {str(e)}")
         return None
+
+def get_best_available_format(url, requested_format):
+    ydl_opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'skip_download': True,
+        'listformats': True
+    }
+    
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+        
+        if not info or 'formats' not in info:
+            return None
+            
+        formats = info['formats']
+        
+        if requested_format == "Best Video":
+            for height in [1080, 720, 480, 360, 0]:
+                for f in formats:
+                    if f.get('height') == height and f.get('ext') == 'mp4':
+                        return f['format_id']
+            return 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
+            
+        elif requested_format == "MP4 720p":
+            for f in formats:
+                if f.get('height') == 720 and f.get('ext') == 'mp4':
+                    return f['format_id']
+            return 'bestvideo[height<=720]+bestaudio/best'
+            
+        elif requested_format == "MP4 480p":
+            for f in formats:
+                if f.get('height') == 480 and f.get('ext') == 'mp4':
+                    return f['format_id']
+            return 'bestvideo[height<=480]+bestaudio/best'
+            
+        elif requested_format in ["Best Audio", "MP3"]:
+            for f in formats:
+                if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
+                    return f['format_id']
+            return 'bestaudio/best'
+            
+    return None
+
+def download_video():
+    if not url:
+        st.error("Please enter a valid URL.")
+        return
+
+    try:
+        format_map = {
+            "Best Video": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "Best Audio": "bestaudio/best",
+            "MP4 720p": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best",
+            "MP4 480p": "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best",
+            "MP3": "bestaudio/best"
+        }
+        
+        ydl_opts = {
+            "outtmpl": f"{download_path}/%(title)s.%(ext)s",
+            "quiet": True,
+            "no_warnings": True,
+            "format": format_map.get(format_choice, "best"),
+            "merge_output_format": "mp4",
+            "retries": 3,
+            "ignoreerrors": True,
+            "nooverwrites": True
+        }
+        
+        if format_choice in ["Best Audio", "MP3"]:
+            ydl_opts["postprocessors"] = [{
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            }]
+
+        with st.spinner("⏳ Downloading... This might take a moment"):
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                
+                if info is None:
+                    best_format = get_best_available_format(url, format_choice)
+                    if best_format:
+                        ydl_opts["format"] = best_format
+                        info = ydl.extract_info(url, download=True)
+                
+                if info:
+                    filename = ydl.prepare_filename(info)
+                    st.success("🎉 Download completed!")
+                    st.markdown(f'<div class="download-info">'
+                                f'<strong>Saved file:</strong><br>'
+                                f'<code>{filename}</code><br><br>'
+                                f'<strong>Download location:</strong><br>'
+                                f'<code>{download_path}</code></div>', 
+                                unsafe_allow_html=True)
+                else:
+                    st.error("❌ Failed to download video. No suitable format available.")
+
+    except yt_dlp.utils.DownloadError as e:
+        if "Requested format is not available" in str(e):
+            st.warning("⚠️ The requested format is not available. Trying alternative formats...")
+            download_video()
+        else:
+            st.error(f"❌ Download error: {str(e)}")
+    except Exception as e:
+        st.error(f"❌ Unexpected error: {str(e)}")
+
+DOWNLOAD_PATH = get_download_dir()
 
 st.markdown('<div class="header"><h1 style="margin:0;font-size:2.5rem;">🚀 YT Grab Pro</h1><p style="margin:0.5rem 0 0;font-size:1.1rem;">Download Videos from Popular Platforms</p></div>', unsafe_allow_html=True)
 st.markdown("<div class='main'>", unsafe_allow_html=True)
@@ -258,81 +387,7 @@ if url:
 format_choice = st.selectbox("🎚️ Select Format", ["Best Video", "Best Audio", "MP4 720p", "MP4 480p", "MP3"], index=0)
 
 if st.button("🚀 Start Download"):
-    if not url:
-        st.error("Please enter a valid URL.")
-    else:
-        ydl_opts = {
-            "outtmpl": f"{download_path}/%(title)s.%(ext)s",
-            "quiet": True,
-            "no_warnings": True,
-            "format": "best",
-            "merge_output_format": "mp4",
-            "retries": 3,
-            "fragment_retries": 3,
-            "extractor_retries": 3,
-            "ignoreerrors": True,
-            "nooverwrites": True
-        }
-        
-        if platform == "YouTube":
-            if format_choice == "Best Audio":
-                ydl_opts.update({
-                    "format": "bestaudio/best",
-                    "postprocessors": [{
-                        "key": "FFmpegExtractAudio",
-                        "preferredcodec": "mp3",
-                        "preferredquality": "192",
-                    }],
-                })
-            elif format_choice == "MP4 720p":
-                ydl_opts["format"] = "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best"
-            elif format_choice == "MP4 480p":
-                ydl_opts["format"] = "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best"
-            elif format_choice == "MP3":
-                ydl_opts.update({
-                    "format": "bestaudio/best",
-                    "postprocessors": [{
-                        "key": "FFmpegExtractAudio",
-                        "preferredcodec": "mp3",
-                        "preferredquality": "192",
-                    }],
-                })
-            else:
-                ydl_opts["format"] = "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
-                
-        elif platform == "TikTok":
-            if format_choice in ["Best Audio", "MP3"]:
-                ydl_opts.update({
-                    "format": "bestaudio/best",
-                    "postprocessors": [{
-                        "key": "FFmpegExtractAudio",
-                        "preferredcodec": "mp3",
-                        "preferredquality": "192",
-                    }],
-                })
-            else:
-                ydl_opts["format"] = "best"
-        else:
-            st.error("Unsupported platform. Currently supports YouTube and TikTok.")
-            st.stop()
-
-        with st.spinner("⏳ Downloading... This might take a moment"):
-            try:
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url, download=True)
-                    if info is None:
-                        st.error("Failed to download video. The format might not be available.")
-                    else:
-                        filename = ydl.prepare_filename(info)
-                        st.success("🎉 Download completed!")
-                        st.markdown(f'<div class="download-info"><strong>Saved file:</strong><br><code>{filename}</code><br><br><strong>Download location:</strong><br><code>{download_path}</code></div>', unsafe_allow_html=True)
-            except yt_dlp.utils.DownloadError as e:
-                if "Requested format is not available" in str(e):
-                    st.error("❌ The requested format is not available for this video. Please try a different format.")
-                else:
-                    st.error(f"❌ Download error: {str(e)}")
-            except Exception as e:
-                st.error(f"❌ Unexpected error: {str(e)}")
+    download_video()
 
 st.markdown(f"""
     <div class="footer">
@@ -355,7 +410,7 @@ st.markdown(f"""
             This tool is for educational purposes only.
         </p>
     </div>
-    <div class="watermark">v2.2.0</div>
+    <div class="watermark">v2.3.0</div>
 """, unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
